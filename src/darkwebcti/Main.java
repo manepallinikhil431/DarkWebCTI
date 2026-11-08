@@ -1,6 +1,6 @@
 
 package darkwebcti;
-
+import java.awt.GridLayout;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -62,6 +62,15 @@ public class Main extends JFrame {
     private final JButton temporalButton;
     private final JButton chartButton;
     private final JButton exportButton;
+    private final JButton clusteringButton;
+    private final JButton entityButton;
+    private final JButton entityEvaluationButton;
+    private final JButton ldaButton;
+    private final JButton coherenceButton;
+    private final JButton adjustedRandButton;
+    private final JButton naiveBayesButton;
+    private final JButton analystRelevanceButton;
+    private final JButton temporalStabilityButton;
 
     private final Map<Integer, String> textByRow = new HashMap<>();
     private final Map<Integer, String> dateByRow = new HashMap<>();
@@ -132,14 +141,24 @@ public class Main extends JFrame {
         temporalButton = new JButton("Temporal Threat Analysis");
         chartButton = new JButton("View Threat Trend Chart");
         exportButton = new JButton("Export Analysis Report");
+        clusteringButton = new JButton("Topic Clustering");
+        entityButton = new JButton("Extract Entities");
+        entityEvaluationButton = new JButton("Evaluate Entity Extraction");
+        ldaButton = new JButton("LDA Topics");
+        coherenceButton = new JButton("Topic Coherence");
+        adjustedRandButton = new JButton("Adjusted Rand Index");
+        naiveBayesButton = new JButton("Naive Bayes Classifier");
+        analystRelevanceButton = new JButton("Analyst Relevance");
+        temporalStabilityButton = new JButton("Temporal Stability");
 
         analyzeButton.setEnabled(false);
         setAnalysisButtons(false);
         temporalButton.setEnabled(false);
         chartButton.setEnabled(false);
         exportButton.setEnabled(false);
+        clusteringButton.setEnabled(false);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+       JPanel buttonPanel = new JPanel(new GridLayout(3, 6, 5, 5));
         buttonPanel.add(importButton);
         buttonPanel.add(analyzeButton);
         buttonPanel.add(analyzeTextButton);
@@ -149,6 +168,15 @@ public class Main extends JFrame {
         buttonPanel.add(temporalButton);
         buttonPanel.add(chartButton);
         buttonPanel.add(exportButton);
+        buttonPanel.add(clusteringButton);
+        buttonPanel.add(entityButton);
+        buttonPanel.add(entityEvaluationButton);
+        buttonPanel.add(ldaButton);
+        buttonPanel.add(coherenceButton);
+        buttonPanel.add(adjustedRandButton);
+        buttonPanel.add(naiveBayesButton);
+        buttonPanel.add(analystRelevanceButton);
+        buttonPanel.add(temporalStabilityButton);
 
         searchField = new JTextField(28);
         searchField.setToolTipText("Search ID, title, category, date, or full post text");
@@ -178,6 +206,15 @@ public class Main extends JFrame {
         temporalButton.addActionListener(e -> analyzeTemporalTrends());
         chartButton.addActionListener(e -> showThreatTrendChart());
         exportButton.addActionListener(e -> exportAnalysisReport());
+        clusteringButton.addActionListener(e -> performTopicClustering());
+        entityButton.addActionListener(e -> extractEntities());
+        entityEvaluationButton.addActionListener(e -> evaluateEntityExtraction());
+        ldaButton.addActionListener(e -> runLdaTopics());
+        coherenceButton.addActionListener(e -> evaluateTopicCoherence());
+        adjustedRandButton.addActionListener(e -> calculateAdjustedRandIndex());
+        naiveBayesButton.addActionListener(e -> classifySelectedText());
+        analystRelevanceButton.addActionListener(e -> collectAnalystRelevance());
+        temporalStabilityButton.addActionListener(e -> calculateTemporalStability());
 
         searchField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -263,6 +300,7 @@ public class Main extends JFrame {
         temporalButton.setEnabled(false);
         chartButton.setEnabled(false);
         exportButton.setEnabled(false);
+        clusteringButton.setEnabled(false);
         statusLabel.setText("Loading dataset...");
 
         new SwingWorker<List<String[]>, Void>() {
@@ -320,6 +358,7 @@ public class Main extends JFrame {
                     temporalButton.setEnabled(!rows.isEmpty());
                     chartButton.setEnabled(!rows.isEmpty());
                     exportButton.setEnabled(!rows.isEmpty());
+                    clusteringButton.setEnabled(!rows.isEmpty());
 
                     statusLabel.setText(
                         "Loaded " + rows.size() + " records from "
@@ -390,6 +429,7 @@ public class Main extends JFrame {
         preprocessButton.setEnabled(enabled);
         threatButton.setEnabled(enabled);
         riskButton.setEnabled(enabled);
+        entityButton.setEnabled(enabled);
     }
 
     private void analyzeData() {
@@ -975,6 +1015,354 @@ public class Main extends JFrame {
         }
     }
 
+    // Run TF-IDF and K-means in the background so the Swing interface stays responsive.
+    private void performTopicClustering() {
+        if (model.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "Import a dataset first.");
+            return;
+        }
+
+        String input = JOptionPane.showInputDialog(
+            this,
+            "Enter the number of clusters (K):",
+            "4"
+        );
+
+        if (input == null) {
+            return;
+        }
+
+        final int k;
+        try {
+            k = Integer.parseInt(input.trim());
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(
+                this,
+                "Please enter a valid whole number for K.",
+                "Invalid Cluster Count",
+                JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        // Take a snapshot of the loaded text before starting the background task.
+        final List<String> documents = new ArrayList<>();
+        for (int row = 0; row < model.getRowCount(); row++) {
+            String text = textByRow.getOrDefault(row, "");
+            if (text != null && !text.trim().isEmpty()) {
+                documents.add(text);
+            }
+        }
+
+        if (documents.isEmpty()) {
+            JOptionPane.showMessageDialog(
+                this,
+                "No non-empty full_text records were found in the dataset."
+            );
+            return;
+        }
+
+        if (k < 1 || k > documents.size()) {
+            JOptionPane.showMessageDialog(
+                this,
+                "K must be between 1 and " + documents.size() + ".",
+                "Invalid Cluster Count",
+                JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        clusteringButton.setEnabled(false);
+        statusLabel.setText("Running TF-IDF and K-means clustering...");
+
+        new SwingWorker<String, Void>() {
+            @Override
+            protected String doInBackground() {
+                TfIdfAnalyzer tfidfAnalyzer = new TfIdfAnalyzer();
+                Map<String, Map<String, Double>> tfidfVectors =
+                    tfidfAnalyzer.calculateTfIdf(documents);
+
+                if (tfidfVectors == null || tfidfVectors.isEmpty()) {
+                    throw new IllegalStateException(
+                        "TF-IDF did not produce any document vectors."
+                    );
+                }
+
+                KMeansCluster kmeans = new KMeansCluster();
+                KMeansCluster.ClusterResult clustering =
+                    kmeans.performClustering(tfidfVectors, k);
+
+                if (clustering == null || clustering.clusters == null) {
+                    throw new IllegalStateException(
+                        "K-means did not return clustering results."
+                    );
+                }
+
+                StringBuilder report = new StringBuilder();
+                report.append("TF-IDF + K-MEANS TOPIC CLUSTERING\n");
+                report.append("=================================\n\n");
+                report.append("Documents analyzed: ")
+                      .append(documents.size()).append("\n");
+                report.append("Number of clusters (K): ")
+                      .append(k).append("\n\n");
+                report.append("Method: TF-IDF vectors with K-means clustering\n");
+                report.append("Distance:  Cosine distance\n\n");
+                report.append("CLUSTER RESULTS\n---------------\n\n");
+
+                for (Map.Entry<Integer, List<String>> clusterEntry
+                        : clustering.clusters.entrySet()) {
+                    int clusterId = clusterEntry.getKey();
+                    List<String> members = clusterEntry.getValue();
+
+                    Map<String, Double> combinedTermScores = new HashMap<>();
+                    for (String documentName : members) {
+                        Map<String, Double> scores = tfidfVectors.get(documentName);
+                        if (scores == null) {
+                            continue;
+                        }
+
+                        for (Map.Entry<String, Double> termEntry : scores.entrySet()) {
+                            String term = termEntry.getKey();
+                            double score = termEntry.getValue();
+                            combinedTermScores.put(
+                                term,
+                                combinedTermScores.getOrDefault(term, 0.0) + score
+                            );
+                        }
+                    }
+
+                    List<Map.Entry<String, Double>> topTerms =
+                        new ArrayList<>(combinedTermScores.entrySet());
+                    topTerms.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+
+                    report.append("Cluster ").append(clusterId + 1).append("\n");
+                    report.append("Documents in cluster: ")
+                          .append(members.size()).append("\n");
+                    report.append("Top terms: ");
+
+                    if (topTerms.isEmpty()) {
+                        report.append("No terms available");
+                    } else {
+                        int limit = Math.min(10, topTerms.size());
+                        for (int i = 0; i < limit; i++) {
+                            if (i > 0) {
+                                report.append(", ");
+                            }
+                            report.append(topTerms.get(i).getKey());
+                        }
+                    }
+                    report.append("\n\n");
+                }
+
+                // Calculate topic evaluation metrics.
+                TopicEvaluation evaluator = new TopicEvaluation();
+
+                double diversity = evaluator.calculateTopicDiversity(
+                    clustering,
+                    tfidfVectors,
+                    10
+                );
+
+                double silhouette = evaluator.calculateSilhouetteScore(
+                    clustering,
+                    tfidfVectors
+                );
+
+                report.append("TOPIC EVALUATION\n");
+                report.append("================\n\n");
+
+                report.append("Topic Diversity: ")
+                      .append(String.format(java.util.Locale.US, "%.4f", diversity))
+                      .append("\n");
+
+                report.append("Topic Diversity Percentage: ")
+                      .append(String.format(java.util.Locale.US, "%.2f%%", diversity * 100))
+                      .append("\n");
+
+                report.append("Silhouette Score (cosine distance): ")
+                      .append(String.format(java.util.Locale.US, "%.4f", silhouette))
+                      .append("\n\n");
+
+                report.append("INTERPRETATION NOTE\n-------------------\n");
+                report.append("Clusters group documents with similar TF-IDF vectors. ");
+                report.append("Top terms are descriptive hints, not verified topic labels.\n");
+                report.append("Topic diversity measures uniqueness among selected top terms.\n");
+                report.append("Silhouette score measures within-cluster cohesion versus separation.\n");
+                report.append("Forum text does not by itself prove that an attack occurred.\n");
+                report.append("These metrics evaluate this clustering run only; manual labels and ARI are still needed for external validation.\n");
+
+                return report.toString();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    String report = get();
+                    showReport("Topic Clustering Results", report);
+                    statusLabel.setText(
+                        "Topic clustering completed for " + documents.size() + " documents."
+                    );
+                } catch (Exception ex) {
+                    Throwable cause = ex.getCause() == null ? ex : ex.getCause();
+                    JOptionPane.showMessageDialog(
+                        Main.this,
+                        "Topic clustering failed:\n" + cause.getMessage(),
+                        "Clustering Error",
+                        JOptionPane.ERROR_MESSAGE
+                    );
+                    statusLabel.setText("Topic clustering failed.");
+                } finally {
+                    clusteringButton.setEnabled(model.getRowCount() > 0);
+                }
+            }
+        }.execute();
+    }
+
+    // Entity extraction can analyze either a selected dataset record or custom test text.
+    private void extractEntities() {
+        if (model.getRowCount() == 0) {
+            JOptionPane.showMessageDialog(this, "Import a dataset first.");
+            return;
+        }
+
+        Object[] options = {"Selected Record", "Enter Test Text", "Cancel"};
+        int choice = JOptionPane.showOptionDialog(
+            this,
+            "Choose the text source for entity extraction:",
+            "Entity Extraction",
+            JOptionPane.DEFAULT_OPTION,
+            JOptionPane.QUESTION_MESSAGE,
+            null,
+            options,
+            options[0]
+        );
+
+        if (choice == 2 || choice == JOptionPane.CLOSED_OPTION) {
+            return;
+        }
+
+        String text;
+        String recordInfo;
+
+        if (choice == 0) {
+            int selectedRow = table.getSelectedRow();
+            if (selectedRow < 0) {
+                JOptionPane.showMessageDialog(this, "Please select a record first.");
+                return;
+            }
+
+            int row = table.convertRowIndexToModel(selectedRow);
+            text = textByRow.getOrDefault(row, "");
+            recordInfo = "Record ID: " + model.getValueAt(row, 0)
+                + "\nTitle: " + model.getValueAt(row, 1) + "\n";
+        } else {
+            JTextArea inputArea = new JTextArea(10, 55);
+            inputArea.setLineWrap(true);
+            inputArea.setWrapStyleWord(true);
+            inputArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+            inputArea.setText(
+                "Security vulnerability CVE-2024-12345 was reported on example.com.\n"
+                + "Email: security@example.com\n"
+                + "IP Address: 192.168.1.10\n"
+                + "MD5: d41d8cd98f00b204e9800998ecf8427e\n"
+                + "URL: https://example.com/report"
+            );
+
+            int result = JOptionPane.showConfirmDialog(
+                this,
+                new JScrollPane(inputArea),
+                "Enter Text to Test Entity Extraction",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+            );
+
+            if (result != JOptionPane.OK_OPTION) {
+                return;
+            }
+            text = inputArea.getText();
+            recordInfo = "Source: Custom test text\n";
+        }
+
+        if (text == null || text.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "There is no text to analyze.");
+            return;
+        }
+
+        EntityExtractor extractor = new EntityExtractor();
+        Map<String, List<String>> entities = extractor.extractEntities(text);
+
+        StringBuilder report = new StringBuilder();
+        report.append("CYBER THREAT ENTITY EXTRACTION\n");
+        report.append("==============================\n\n");
+        report.append(recordInfo).append("\n");
+
+        int totalEntities = 0;
+        for (Map.Entry<String, List<String>> entry : entities.entrySet()) {
+            report.append(entry.getKey()).append("\n");
+            report.append("--------------------\n");
+
+            if (entry.getValue().isEmpty()) {
+                report.append("No entities found.\n");
+            } else {
+                for (String value : entry.getValue()) {
+                    report.append("- ").append(value).append("\n");
+                    totalEntities++;
+                }
+            }
+            report.append("\n");
+        }
+
+        report.append("TOTAL UNIQUE ENTITIES: ").append(totalEntities).append("\n\n");
+        report.append("Note: Extracted values are text matches and have not been independently verified.");
+        showReport("Entity Extraction Results", report.toString());
+        statusLabel.setText("Entity extraction completed. Found " + totalEntities + " unique entities.");
+    }
+
+
+    // Evaluates the extractor against a small, manually labeled demonstration sample.
+    // These results measure this test sample only, not real-world dataset accuracy.
+    private void evaluateEntityExtraction() {
+        String testText =
+            "Security vulnerability CVE-2024-12345 was reported on example.com.\n"
+            + "Email: security@example.com\n"
+            + "IP Address: 192.168.1.10\n"
+            + "MD5: d41d8cd98f00b204e9800998ecf8427e\n"
+            + "URL: https://example.com/report";
+
+        EntityExtractor extractor = new EntityExtractor();
+        Map<String, List<String>> predicted =
+            extractor.extractEntities(testText);
+
+        // Manually prepared expected entities for the exact test text above.
+        // example.com is intentionally not listed under Domain Names because
+        // EntityExtractor filters domains already contained in URLs or emails.
+        Map<String, List<String>> actual = new java.util.LinkedHashMap<>();
+        actual.put("IP Addresses", java.util.Arrays.asList("192.168.1.10"));
+        actual.put("Email Addresses", java.util.Arrays.asList("security@example.com"));
+        actual.put("Domain Names", java.util.Collections.<String>emptyList());
+        actual.put("CVE Identifiers", java.util.Arrays.asList("CVE-2024-12345"));
+        actual.put("File Hashes", java.util.Arrays.asList(
+            "d41d8cd98f00b204e9800998ecf8427e"));
+        actual.put("URLs", java.util.Arrays.asList(
+            "https://example.com/report"));
+
+        EntityEvaluation evaluator = new EntityEvaluation();
+        Map<String, EntityEvaluation.MetricResult> results =
+            evaluator.evaluate(actual, predicted);
+
+        String report = evaluator.generateReport(results);
+        report += "\n\nEVALUATION DATASET\n";
+        report += "------------------\n";
+        report += "Manually labeled demonstration text (one sample).\n";
+        report += "These scores are not a measurement of real-world ";
+        report += "performance on the full forum dataset.";
+
+        showReport("Entity Extraction Evaluation", report);
+        statusLabel.setText(
+            "Entity extraction evaluation completed on the built-in labeled sample."
+        );
+    }
+
     private void showReport(String title, String content) {
         JTextArea reportArea = new JTextArea(content, 28, 80);
         reportArea.setEditable(false);
@@ -1092,6 +1480,180 @@ public class Main extends JFrame {
         }
     }
 
+    private List<String> getAllPostTexts() {
+        List<String> documents = new ArrayList<>();
+        for (int row = 0; row < model.getRowCount(); row++) {
+            documents.add(textByRow.getOrDefault(row, ""));
+        }
+        return documents;
+    }
+
+    private void runLdaTopics() {
+        List<String> documents = getAllPostTexts();
+        if (documents.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Import a dataset first.");
+            return;
+        }
+        String input = JOptionPane.showInputDialog(this,
+                "Number of topics:", "5");
+        if (input == null) return;
+        try {
+            int topics = Integer.parseInt(input.trim());
+            if (topics < 1) throw new NumberFormatException();
+            Map<Integer, List<String>> results =
+                    new LdaTopicModel(topics, 100).train(documents);
+            StringBuilder report = new StringBuilder("LDA TOPIC MODEL\n================\n\n");
+            if (results.isEmpty()) report.append("No usable text was found.\n");
+            for (Map.Entry<Integer, List<String>> entry : results.entrySet()) {
+                report.append("Topic ").append(entry.getKey() + 1).append(": ")
+                        .append(String.join(", ", entry.getValue())).append('\n');
+            }
+            showReport("LDA Topics", report.toString());
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Enter a positive whole number.",
+                    "Invalid Topic Count", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void evaluateTopicCoherence() {
+        List<String> documents = getAllPostTexts();
+        if (documents.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Import a dataset first.");
+            return;
+        }
+        Map<Integer, List<String>> topics = new LdaTopicModel(5, 100).train(documents);
+        TopicCoherence evaluator = new TopicCoherence();
+        StringBuilder report = new StringBuilder("TOPIC COHERENCE (NPMI)\n=======================\n\n");
+        if (topics.isEmpty()) report.append("No topics could be produced from the imported text.\n");
+        for (Map.Entry<Integer, List<String>> entry : topics.entrySet()) {
+            List<String> topWords = entry.getValue().subList(0,
+                    Math.min(10, entry.getValue().size()));
+            report.append("Topic ").append(entry.getKey() + 1).append(": ")
+                    .append(String.format(java.util.Locale.US, "%.4f", evaluator.calculateCoherence(topWords, documents)))
+                    .append("\nWords: ").append(String.join(", ", topWords)).append("\n\n");
+        }
+        showReport("Topic Coherence", report.toString());
+    }
+
+    private void calculateAdjustedRandIndex() {
+        List<String> documents = getAllPostTexts();
+        if (documents.size() < 2) {
+            JOptionPane.showMessageDialog(this, "Import at least two records.");
+            return;
+        }
+        try {
+            Map<String, Map<String, Double>> vectors =
+                    new TfIdfAnalyzer().calculateTfIdf(documents);
+            int k = Math.min(5, documents.size());
+            KMeansCluster.ClusterResult clustered =
+                    new KMeansCluster().performClustering(vectors, k);
+            List<String> actual = new ArrayList<>();
+            List<String> predicted = new ArrayList<>();
+            for (int row = 0; row < model.getRowCount(); row++) {
+                Object category = model.getValueAt(row, 2);
+                actual.add(category == null ? "" : category.toString());
+                predicted.add("unassigned");
+            }
+            for (Map.Entry<Integer, List<String>> entry : clustered.clusters.entrySet()) {
+                for (String docName : entry.getValue()) {
+                    try {
+                        int row = Integer.parseInt(docName.substring("Document ".length())) - 1;
+                        if (row >= 0 && row < predicted.size()) predicted.set(row, String.valueOf(entry.getKey()));
+                    } catch (NumberFormatException ignored) { }
+                }
+            }
+            double ari = new AdjustedRandIndex().calculate(actual, predicted);
+            showReport("Adjusted Rand Index", String.format(java.util.Locale.US,
+                    "Adjusted Rand Index\n====================\n\nCategories compared: %d\nK-means clusters: %d\nARI: %.4f\n\nThe ARI compares the imported Category labels with K-means assignments; values closer to 1 indicate stronger agreement.",
+                    actual.size(), k, ari));
+        } catch (RuntimeException ex) {
+            showReport("Adjusted Rand Index", "Could not calculate ARI:\n" + ex.getMessage());
+        }
+    }
+
+    private void classifySelectedText() {
+        int selected = table.getSelectedRow();
+        if (selected < 0) {
+            JOptionPane.showMessageDialog(this, "Select a record first.");
+            return;
+        }
+        int row = table.convertRowIndexToModel(selected);
+        List<String> documents = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        for (int i = 0; i < model.getRowCount(); i++) {
+            Object category = model.getValueAt(i, 2);
+            String label = category == null ? "" : category.toString().trim();
+            String text = textByRow.getOrDefault(i, "");
+            if (!label.isEmpty() && !text.trim().isEmpty()) {
+                documents.add(text);
+                labels.add(label);
+            }
+        }
+        if (documents.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Training requires nonempty post text and Category values.");
+            return;
+        }
+        NaiveBayesClassifier classifier = new NaiveBayesClassifier();
+        classifier.train(documents, labels);
+        String prediction = classifier.predict(textByRow.getOrDefault(row, ""));
+        showReport("Naive Bayes Classification", "Selected record category prediction\n===================================\n\nPredicted category: " + prediction
+                + "\n\nTraining examples: " + documents.size());
+    }
+
+    private void collectAnalystRelevance() {
+        String input = JOptionPane.showInputDialog(this,
+                "Enter analyst relevance ratings from 1 to 5, separated by commas:", "5,4,4");
+        if (input == null) return;
+        try {
+            List<Integer> ratings = new ArrayList<>();
+            for (String part : input.split(",")) {
+                if (!part.trim().isEmpty()) ratings.add(Integer.parseInt(part.trim()));
+            }
+            AnalystRelevance evaluator = new AnalystRelevance();
+            showReport("Analyst Relevance", evaluator.generateReport(ratings));
+        } catch (IllegalArgumentException ex) {
+            JOptionPane.showMessageDialog(this, "Use comma-separated whole-number ratings from 1 to 5.",
+                    "Invalid Ratings", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void calculateTemporalStability() {
+        Map<YearMonth, List<String>> byMonth = new TreeMap<>();
+        for (int row = 0; row < model.getRowCount(); row++) {
+            LocalDate date = parseDate(dateByRow.getOrDefault(row, ""));
+            String text = textByRow.getOrDefault(row, "");
+            if (date != null && !text.trim().isEmpty()) {
+                byMonth.computeIfAbsent(YearMonth.from(date), key -> new ArrayList<>()).add(text);
+            }
+        }
+        if (byMonth.size() < 2) {
+            JOptionPane.showMessageDialog(this,
+                    "Temporal stability needs usable post text from at least two different months.");
+            return;
+        }
+        List<List<String>> topicsOverTime = new ArrayList<>();
+        StringBuilder report = new StringBuilder("TEMPORAL TOPIC STABILITY\n========================\n\n");
+        for (Map.Entry<YearMonth, List<String>> month : byMonth.entrySet()) {
+            Map<Integer, List<String>> topics = new LdaTopicModel(5, 100).train(month.getValue());
+            List<String> combined = new ArrayList<>();
+            for (List<String> words : topics.values()) {
+                combined.addAll(words.subList(0, Math.min(10, words.size())));
+            }
+            if (!combined.isEmpty()) {
+                topicsOverTime.add(combined);
+                report.append(month.getKey()).append(": ").append(String.join(", ", combined)).append('\n');
+            }
+        }
+        if (topicsOverTime.size() < 2) {
+            report.append("\nNot enough monthly topic results to compare.");
+        } else {
+            double stability = new TemporalStability().calculateAverageStability(topicsOverTime);
+            report.append(String.format(java.util.Locale.US,
+                    "\nAverage adjacent-month Jaccard stability: %.4f", stability));
+        }
+        showReport("Temporal Stability", report.toString());
+    }
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
@@ -1106,3 +1668,4 @@ public class Main extends JFrame {
         });
     }
 }
+
