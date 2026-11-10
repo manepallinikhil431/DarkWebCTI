@@ -2,62 +2,70 @@
 
 ## Project Overview
 
-Dark Web Cyber Threat Intelligence Analysis is a Java desktop application designed to analyze cybersecurity-related text records from a CSV dataset. It uses text preprocessing, predefined keyword matching, simple rule-based risk scoring, and monthly trend analysis to help explore potential threat-related discussions.
+Dark Web Cyber Threat Intelligence Analysis is a Java desktop application for exploring cybersecurity-related text records from a CSV dataset. It provides a graphical interface for searching records and running text, topic, entity, classification, and time-based analyses.
 
-## Objectives
-
-- Import and explore cybersecurity-related text records.
-- Preprocess selected text for basic analysis.
-- Identify predefined cybersecurity keywords.
-- Demonstrate rule-based threat risk scoring.
-- Examine monthly trends in records and keyword matches.
-- Export analysis results to a text report.
-
-## Technologies Used
-
-- Java
-- Java Swing for the desktop graphical user interface
-- Apache Commons CSV for CSV data processing
-- NetBeans IDE
-- Git and GitHub for source-code management
+The application is intended for educational and defensive cybersecurity analysis. Its keyword and risk-scoring results are demonstrations and should not be treated as confirmed threat assessments.
 
 ## Features
 
-1. **Import Dataset** — load records from a CSV file.
-2. **Analyze Data** — display dataset summaries and category counts.
-3. **Search and Filter Records** — search the loaded records.
-4. **Analyze Selected Text** — examine the text of a selected record.
-5. **Preprocess Selected Text** — normalize text and remove common stop words.
-6. **Detect Threat Keywords** — identify matches against a predefined keyword list.
-7. **Classify Threat Risk** — calculate a demonstration risk score using predefined rules.
-8. **Temporal Threat Analysis** — summarize records and keyword matches by month.
-9. **View Threat Trend Chart** — display monthly keyword-match trends.
-10. **Export Analysis Report** — save analysis results as a text file.
+- **Import CSV data** and display records in a table.
+- **Search and filter records** by their visible fields and full text.
+- **Analyze selected text** and preprocess it by cleaning text and removing common stop words.
+- **Detect predefined threat keywords** and calculate a rule-based demonstration risk score.
+- **Analyze records over time** by month and display keyword-match trends in a chart.
+- **Export analysis reports** as text files.
+- **Create topic clusters** using TF-IDF term weights and K-means.
+- **Explore LDA topics** and calculate topic coherence, topic diversity, and silhouette scores.
+- **Calculate the Adjusted Rand Index** to compare dataset categories with K-means cluster assignments.
+- **Extract entities** such as IP addresses, email addresses, domain names, CVE identifiers, file hashes, and URLs.
+- **Evaluate entity extraction** against a manually labeled example.
+- **Predict a category** for selected text using a Naive Bayes classifier trained from the dataset’s category values.
+- **Measure temporal topic stability** by comparing LDA topics across months.
+- **Calculate analyst relevance** from manually entered ratings on a 1–5 scale.
 
-## How to Run
+## Technologies
 
-1. Install a compatible Java Development Kit (JDK).
-2. Open the `DarkWebCTI` project in Apache NetBeans.
-3. Configure the required Apache Commons CSV library and any dependencies used by the project.
-4. Make sure the CSV dataset is available locally and is compatible with the application's expected columns.
+- Java
+- Java Swing
+- Apache Commons CSV
+- Apache NetBeans
+- Git and GitHub
+
+## Running the Application
+
+1. Install the JDK version configured for the project.
+2. Clone or download this repository.
+3. Open the `DarkWebCTI` project in Apache NetBeans.
+4. Confirm that the libraries in the project’s `lib` folder are available to the project.
 5. Build and run the project from NetBeans.
-6. Use **Import Dataset** to load the CSV file and explore the available analysis features.
+6. Click **Import Dataset** and select a compatible CSV file.
+
+The CSV dataset should include columns for `id`, `title`, `category`, `created_at`, and `full_text`. Analysis results depend on the quality and completeness of the data.
+
+## Project Structure
+
+- `src/darkwebcti/` — application interface and analysis classes
+- `lib/` — libraries used by the project
+- `nbproject/` — NetBeans project settings
+- `build.xml` — Ant build file
 
 ## Methodology
 
-The application loads CSV records, processes selected text, checks for predefined cybersecurity keywords, applies a simple rule-based score, and groups records by month for trend visualization. Results can be reviewed in the graphical interface and exported to a text report.
+The application reads records from a CSV file and displays them in the interface. Text analysis uses predefined keyword rules, TF-IDF, K-means, LDA, entity patterns, and a Naive Bayes classifier. Date fields support monthly summaries, trend charts, and topic stability comparisons. Results can be reviewed in the application and, where available, exported as reports.
 
 ## Limitations
 
-- Keyword matching can miss threats that use different terminology.
-- A keyword match does not prove that a cyberattack occurred.
-- The risk score is a demonstration rule, not a validated security assessment.
-- Results depend on the quality, completeness, and permitted use of the input dataset.
-- The application should be used for educational and defensive cybersecurity analysis.
+- Keyword matching may miss threats described with different words.
+- A keyword match does not prove that an attack occurred.
+- The risk score uses demonstration rules and is not a validated security assessment.
+- Naive Bayes predictions depend on the dataset’s category labels and training examples.
+- Entity evaluation uses a manually labeled example; it does not establish accuracy across all datasets.
+- Analyst relevance results depend on ratings entered by the user.
+- Results depend on the quality, completeness, and permitted use of the input data.
 
 ## Ethical Use
 
-Use only datasets that you are authorized to access and analyze. Follow the dataset's licence and applicable privacy requirements. Do not use this application to facilitate unauthorized access or cybercrime.
+Use only datasets you are authorized to access and analyze. Follow the dataset’s license and applicable privacy requirements. Do not use this application to facilitate unauthorized access or cybercrime.
 
 ## Author
 
@@ -65,4 +73,4 @@ Nikhil Manepalli
 
 ## Repository
 
-https://github.com/manepallinikhil431/DarkWebCTI
+[DarkWebCTI on GitHub](https://github.com/manepallinikhil431/DarkWebCTI)
